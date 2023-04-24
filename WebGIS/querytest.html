@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>查询</title>
+    <link rel="stylesheet" href="http://localhost/arcgis_js_api/library/3.25/esri/css/esri.css">
+    <script src="http://localhost/arcgis_js_api/library/3.25/init.js"></script>
+    <style type="text/css">
+        #map {
+            width: 100%;
+            height: 1000px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <span>输入要查询的名称</span><input id="serach" type="text" name="name1" value="" />
+    <input type="button" name="name" id="attrSerach" value="属性查询" />
+    <input type="button" name="name" id="spaceSearch" value="空间查询 " />
+    <input type="button" name="name" id="del" value="清除 " />
+    <input type="text" placeholder="0~100" id="opacity" value="">
+    <input type="button" name="name" id="setOpacity" value="更改透明度">
+    <div id="map">
+        <div id="toc" style="position: absolute; left: 10px; bottom: 20px; border: 1px solid #9c9c9c; background: #fff; width: 100px; height: auto; z-index: 99;padding: 10px;"></div>
+        <div id="divShowResult" style="position: absolute; right: 0px; top: 20px;border: 1px solid #9c9c9c; background: rgb(204, 196, 196); width: 200px; height: auto; z-index: 99;padding: 10px;"></div>
+    </div>
+
+    <script type="text/javascript">
+        var queryUrl = "none";
+        var shapeArr = new Array();
+        require([
+            "esri/map",
+            "esri/layers/ArcGISDynamicMapServiceLayer",
+            "esri/tasks/FindTask",
+            "esri/tasks/FindParameters",
+            "esri/tasks/IdentifyTask",
+            "esri/tasks/IdentifyParameters",
+            "esri/toolbars/draw",
+            "esri/symbols/SimpleLineSymbol",
+            "esri/symbols/SimpleFillSymbol",
+            "esri/geometry/Extent",
+            "esri/geometry/webMercatorUtils",
+            "esri/graphic",
+            "dojo/on",
+
+        ], function(Map, ArcGISDynamicMapServiceLayer, FindTask, FindParameters, IdentifyTask, IdentifyParameters,
+            Draw, SimpleLineSymbol, SimpleFillSymbol, Extent, Graphic, on) {
+            var map = new Map("map", {
+                logo: false,
+
+            });
+            var serverUrl = "http://192.168.100.195:6080/arcgis/rest/services/jy/MapServer";
+            var dyLayer = new ArcGISDynamicMapServiceLayer(serverUrl);
+            map.addLayer(dyLayer);
+            document.getElementById("divShowResult").style.display = "none";
+            var layer1 = {
+                url: "http://192.168.100.195:6080/arcgis/rest/services/DLTB2020/MapServer",
+                id: "DLTB2020",
+                name: "DLTB2020"
+            };
+            var layer2 = {
+                url: "http://192.168.100.195:6080/arcgis/rest/services/DLTB2018/MapServer",
+                id: "DLTB2018",
+                name: "DLTB2018"
+            };
+            var layer3 = {
+                url: "http://192.168.100.195:6080/arcgis/rest/services/DLTB2017/MapServer",
+                id: "DLTB2017",
+                name: "DLTB2017"
+            };
+            var layers = [layer1, layer2, layer3];
+            var html = "";
+            for (var i = 0, length = layers.length; i < length; i++) {
+                var layer = layers[i];
+                html = html + "<div><input id='" + layer.id + "' name='layerList' class='listCss' type='checkbox' value='checkbox' onclick='setLayerVisibility()' " + (false ? "checked" : "") + " />" + layer.name + "</div>";
+            }
+            dojo.byId("toc").innerHTML = html;
+
+            var loadLayer1 = new ArcGISDynamicMapServiceLayer("http://192.168.100.195:6080/arcgis/rest/services/DLTB2020/MapServer");
+            var btn1 = document.getElementById("DLTB2020");
+            btn1.onclick = function() {
+                if (btn1.checked) {
+                    map.addLayer(loadLayer1);
+                    shapeArr.push("2020");
+                } else {
+                    map.removeLayer(loadLayer1);
+                    shapeArr.remove("2020");
+                }
+                toplayer();
+            }
+
+            var loadLayer2 = new ArcGISDynamicMapServiceLayer("http://192.168.100.195:6080/arcgis/rest/services/DLTB2018/MapServer");
+            var btn2 = document.getElementById("DLTB2018");
+            btn2.onclick = function() {
+                if (btn2.checked) {
+                    map.addLayer(loadLayer2);
+                    shapeArr.push("2018");
+                } else {
+                    map.removeLayer(loadLayer2);
+                    shapeArr.remove("2018");
+                }
+                toplayer();
+            }
+
+            var loadLayer3 = new ArcGISDynamicMapServiceLayer("http://192.168.100.195:6080/arcgis/rest/services/DLTB2017/MapServer");
+            var btn3 = document.getElementById("DLTB2017");
+            btn3.onclick = function() {
+                if (btn3.checked) {
+                    map.addLayer(loadLayer3);
+                    shapeArr.push("2017");
+                } else {
+                    map.removeLayer(loadLayer3);
+                    shapeArr.remove("2017");
+                }
+                toplayer();
+            }
+
+            Array.prototype.indexOf = function(val) {
+                for (var i = 0; i < this.length; i++) {
+                    if (this[i] == val) return i;
+                }
+                return -1;
+            };
+            Array.prototype.remove = function(val) {
+                var index = this.indexOf(val);
+                if (index > -1) {
+                    this.splice(index, 1);
+                }
+            };
+
+            function toplayer() {
+                var id = shapeArr.slice(-1);
+                if (id == "2018") {
+                    queryUrl = "http://192.168.100.195:6080/arcgis/rest/services/shape2018/MapServer";
+                } else {
+                    queryUrl = "none";
+                }
+                findTask = new FindTask(queryUrl);
+            }
+
+            var opacityBtn = document.getElementById("setOpacity");
+            opacityBtn.onclick = function() {
+                var str = document.getElementById("opacity").value;
+                var id = shapeArr.slice(-1);
+                if (id == "2020") {
+                    loadLayer1.setOpacity(str / 100);
+                } else if (id == "2018") {
+                    loadLayer2.setOpacity(str / 100);
+                } else if (id == "2017") {
+                    loadLayer3.setOpacity(str / 100);
+                } else {
+                    dyLayer.setOpacity(str / 100);
+                }
+            }
+            var draw = new Draw(map);
+            //属性查询
+            function attrFinfd() {
+                var findParameters = new FindParameters();
+                findParameters.returnGeometry = true;
+                findParameters.layerIds = [0];
+                findParameters.searchFields = ["QSDWMC"];
+                findParameters.searchText = document.getElementById("serach").value;
+                findTask.execute(findParameters, showResult);
+            };
+            //查询工具
+            var findTask = new FindTask(queryUrl)
+                //属性查询渲染函数
+            function showResult(result) {
+                map.graphics.clear();
+                //线符号
+                var lineSymbol = new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new dojo.Color([75, 75, 25]), 2);
+                //面符号
+                var fillSymbol = new SimpleFillSymbol(SimpleFillSymbol.NONE, lineSymbol);
+                fillSymbol.Color = [128, 128, 128, 0.5];
+                if (result.length == 0) {
+                    alert("未查询到任何信息");
+                    div.Color.Draw()
+                    return;
+                } else {
+                    for (var i = 0; i < result.length; i++) {
+                        //获得图形graphic
+                        var graphic = result[i].feature;
+                        console.log(graphic);
+                        console.log(graphic.geometry.cache);
+                        //console.log(graphic.geometry.cache._extent);
+                        //赋予相应的符号
+                        graphic.setSymbol(fillSymbol);
+                        //将graphic添加到地图中，从而实现高亮效果
+                        map.graphics.add(graphic);
+
+                    }
+
+                }
+
+            }
+            var oBtn = document.getElementById("attrSerach");
+            oBtn.onclick = function() {
+                var text = document.getElementById("serach");
+                if (text.value == "") {
+                    alert("请输入查询条件");
+                    return;
+                }
+
+                attrFinfd();
+            };
+            //空间查询
+            var searchBtn = document.getElementById("spaceSearch");
+            searchBtn.onclick = function() {
+                    draw.activate(esri.toolbars.Draw.POLYGON);
+                }
+                //绘图
+            draw.on("draw-complete", function(resultDraw) {
+                //得到绘图图形
+                var geometry = resultDraw.geometry;
+                //关闭绘图工具
+                draw.deactivate();
+                //执行空间查询
+                identifyTask(geometry);
+            });
+            //清除
+            var deleteBtn = document.getElementById("del");
+            deleteBtn.onclick = function() {
+                map.graphics.clear();
+                document.getElementById("divShowResult").innerHTML = "";
+                document.getElementById("divShowResult").style.display = "none";
+            }
+
+
+            function GetLenthorArea(geometry) { //画图完毕后计算距离或者面积
+                if (geometry.type == "polyline") {
+                    var geo = esri.geometry.webMercatorToGeographic(geometry);
+                    var Length = esri.geometry.geodesicLengths([geo], esri.Units.METERS);
+
+                    Map.infoWindow.setContent("距离：" + Length + "米");
+                    Map.infoWindow.show();
+                } else if (geometry.type == "polygon") {
+                    var geo = esri.geometry.webMercatorToGeographic(geometry);
+                    var Area = esri.geometry.geodesicAreas([geo], esri.Units.SQUARE_METERS);
+                    Map.infoWindow.setContent("面积：" + Area + "平方米");
+                    Map.infoWindow.show();
+                }
+            }
+
+            //空间查询
+            function identifyTask(geometry) {
+                //定义空间查询对象，注意他的参数是整个地图服务，而不是单个图层
+                var identifyTask = new IdentifyTask(queryUrl);
+                //定义空间查询参数对象
+                var params = new IdentifyParameters();
+                //容差
+                params.tolerance = 5;
+                //是否返回几何信息
+                params.returnGeometry = true;
+                //空间查询的图层
+                params.layerIds = [0];
+                //空间查询的条件
+                params.layerOption = IdentifyParameters.LAYER_OPTION_ALL;
+                params.width = map.width;
+                params.height = map.height;
+                //空间查询的几何对象
+                params.geometry = geometry;
+                params.mapExtent = map.extent;
+                //执行空间查询
+                identifyTask.execute(params, showQueryResult);
+            }
+            //空间查询展示
+            function showQueryResult(idResults) {
+                //创建线符号
+                var lineSymbol = new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new dojo.Color([255, 225, 0]), 1);
+                //创建面符号
+                var fill = new SimpleFillSymbol(SimpleFillSymbol.NONE, lineSymbol);
+                if (idResults.length > 0) {
+                    var htmls = "";
+                    for (var i = 0; i < idResults.length; i++) {
+                        var result = idResults[i];
+                        //获得图形graphic
+                        var graphic = result.feature;
+                        //设置图形的符号
+                        graphic.setSymbol(fill);
+                        var attributes = result.feature.attributes;
+                        for (var key in attributes) {
+                            var s = key + ":" + attributes[key];
+                            htmls = htmls + s;
+                        }
+                        htmls = htmls + "-----------------------------"
+                        map.graphics.add(graphic);
+                    }
+                    document.getElementById("divShowResult").innerHTML = htmls;
+                    document.getElementById("divShowResult").style.display = "block";
+                } else {
+                    document.getElementById("divShowResult").innerHTML = "";
+                    document.getElementById("divShowResult").style.display = "none";
+                }
+            }
+
+        })
+    </script>
+</body>
+
+</html>
